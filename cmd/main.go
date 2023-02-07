@@ -9,6 +9,7 @@ import (
 	"github.com/yurikilian/bills/pkg/middleware"
 	"github.com/yurikilian/bills/pkg/server"
 	"github.com/yurikilian/bills/pkg/telemetry"
+	"time"
 )
 
 func main() {
@@ -27,7 +28,8 @@ func main() {
 		WithPsqlStorage(dbConnection).
 		Build()
 
-	err := server.NewRestServer(server.NewRestServerOptions(":8080", log)).
+	srvCtx := context.WithValue(ctx, "startup_time", time.Now().UnixNano())
+	err := server.NewRestServer(server.NewRestServerOptions(":3500", log)).
 		Use(middleware.Otel()).
 		Use(middleware.Json()).
 		Router(
@@ -35,7 +37,7 @@ func main() {
 				Get("/", transactionModuleProvider.ProvideRoute().Find).
 				POST("/", transactionModuleProvider.ProvideRoute().Create),
 		).
-		Start()
+		Start(srvCtx)
 
 	if err != nil {
 		log.Fatal(context.Background(), err.Error())

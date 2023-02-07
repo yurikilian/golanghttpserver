@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/go-playground/validator/v10"
 	"github.com/yurikilian/bills/pkg/exception"
 	"io"
 )
@@ -13,7 +12,7 @@ type Binder struct {
 
 func NewBinder() *Binder {
 	return &Binder{
-		validator: newCustomValidator(),
+		validator: Validator,
 	}
 }
 
@@ -29,12 +28,7 @@ func (b *Binder) ReadBody(c *HttpContext, result interface{}) error {
 	}
 
 	if vErr := b.validator.Validate(result); vErr != nil {
-		vErrors := vErr.(validator.ValidationErrors)
-		customErrors := make([]*exception.ValidationProblemDetail, 0)
-
-		for _, vErr := range vErrors {
-			customErrors = append(customErrors, exception.NewValidationProblemDetail(vErr.Tag(), vErr.Field(), vErr.Param()))
-		}
+		customErrors := b.validator.MapValidationProblems(vErr)
 
 		return exception.NewValidationProblem(customErrors)
 	}

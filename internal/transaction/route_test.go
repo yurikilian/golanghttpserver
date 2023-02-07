@@ -121,7 +121,7 @@ func Test_Transaction_Create(t *testing.T) {
 		Use(middleware.Json())
 
 	defer func() {
-		_ = restServer.Start()
+		_ = restServer.Start(nil)
 
 	}()
 

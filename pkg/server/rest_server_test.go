@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/yurikilian/bills/internal/logger"
 	"github.com/yurikilian/bills/pkg/exception"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -50,11 +52,8 @@ func TestRestServer_Router(t *testing.T) {
 func TestRestServer_ServeHTTP(t *testing.T) {
 
 	server := NewRestServer(&Options{BindAddress: ":8080"})
-	handlerFunc := func(w http.ResponseWriter, req *http.Request) error {
-
-		w.WriteHeader(200)
-		w.Write([]byte("Test"))
-		return nil
+	handlerFunc := func(httpContext *HttpContext) error {
+		return httpContext.WriteResponse(200, "Test")
 	}
 	server.Router(NewRestRouter().Get("/test", handlerFunc))
 
@@ -81,7 +80,7 @@ func TestRestServer_ServeHTTP(t *testing.T) {
 			},
 			expectedResponse: &Response{
 				statusCode: http.StatusOK,
-				body:       "Test",
+				body:       "\"Test\"\n",
 			},
 		},
 		{
@@ -146,9 +145,18 @@ func TestRestServer_Start(t *testing.T) {
 			name: "Return exception given invalid server configuration",
 			fields: fields{
 				router: NewRestRouter(),
-				server: NewRestServer(&Options{BindAddress: "-1"}),
+				server: NewRestServer(&Options{Log: logger.NewProvider().ProvideLog(), BindAddress: "-1"}),
 			},
 			expectedErr:   exception.NewInternalServerError("listen tcp: address -1: missing port in address"),
+			expectedStart: false,
+		},
+		{
+			name: "Return exception given invalid server configuration",
+			fields: fields{
+				router: NewRestRouter(),
+				server: NewRestServer(&Options{BindAddress: "-1"}),
+			},
+			expectedErr:   exception.NewInternalServerError("Key: 'Options.Log' Error:Field validation for 'Log' failed on the 'required' tag"),
 			expectedStart: false,
 		},
 		{
@@ -174,7 +182,7 @@ func TestRestServer_Start(t *testing.T) {
 
 				assert.Error(t, errors.New("http: Server closed"))
 			} else if tt.expectedErr != nil {
-				assert.Equal(t, tt.expectedErr, r.Start())
+				assert.Equal(t, tt.expectedErr, r.Start(nil))
 			}
 
 		})
@@ -190,4 +198,32 @@ func getJson(t *testing.T, ex *exception.Problem) string {
 func newRequest(method string, path string, body io.Reader) *http.Request {
 	request, _ := http.NewRequest(method, path, body)
 	return request
+}
+
+func BenchmarkRestServer_ServeHTTP(b *testing.B) {
+
+	server := NewRestServer(&Options{BindAddress: ":0"})
+	mutex := &sync.Mutex{}
+	handlerFunc := func(ctx *HttpContext) error {
+		mutex.Lock()
+		ctx.WriteResponse(200, "Test")
+		mutex.Unlock()
+		return nil
+	}
+	writer := httptest.NewRecorder()
+
+	server.Router(NewRestRouter().Get("/test", handlerFunc))
+	request := newRequest(http.MethodGet, "/test", nil)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	b.RunParallel(func(pb *testing.PB) {
+		for i := 0; i < b.N; i++ {
+			for pb.Next() {
+				server.ServeHTTP(writer, request)
+			}
+		}
+	})
+
 }

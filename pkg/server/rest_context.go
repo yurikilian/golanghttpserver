@@ -19,6 +19,11 @@ func NewHttpContext(writer http.ResponseWriter, request *http.Request, log logge
 	return &HttpContext{writer: writer, request: request, log: log, binder: binder}
 }
 
+func (hCtx *HttpContext) reset(writer http.ResponseWriter, request *http.Request) {
+	hCtx.request = request
+	hCtx.writer = writer
+}
+
 func (hCtx *HttpContext) Writer() http.ResponseWriter {
 	return hCtx.writer
 }

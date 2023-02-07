@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+var (
+	emptyHandlerFunc = func(ctx *HttpContext) error { return nil }
+)
+
 func TestNewRestRouter(t *testing.T) {
 	tests := []struct {
 		name string
@@ -31,7 +35,7 @@ func TestRestRouter_Get(t *testing.T) {
 		path        string
 		handlerFunc RestRouteHandler
 	}
-	emptyHandlerFunc := func(w http.ResponseWriter, req *http.Request) error { return nil }
+
 	routeMap := RouteMap{"/transactions": map[string]RestRouteHandler{"GET": emptyHandlerFunc}}
 	tests := []struct {
 		name   string
@@ -60,7 +64,7 @@ func TestRestRouter_Get(t *testing.T) {
 }
 
 func TestRestRouter_load(t *testing.T) {
-	emptyHandlerFunc := func(w http.ResponseWriter, req *http.Request) error { return nil }
+
 	routeMap := RouteMap{"/transactions": map[string]RestRouteHandler{"GET": emptyHandlerFunc}}
 	type fields struct {
 		routeMap RouteMap
@@ -114,7 +118,7 @@ func TestRestRouter_load(t *testing.T) {
 			}
 			got, got1 := r.load(tt.args.path, tt.args.httpMethod)
 			if got != nil && tt.expectedHandler != nil {
-				if !reflect.DeepEqual(got(nil, nil), tt.expectedHandler(nil, nil)) {
+				if !reflect.DeepEqual(got(nil), tt.expectedHandler(nil)) {
 					t.Errorf("load() got = %v, expectedHandler %v", got, tt.expectedHandler)
 				}
 			}
@@ -126,7 +130,6 @@ func TestRestRouter_load(t *testing.T) {
 }
 
 func TestRestRouter_register(t *testing.T) {
-	emptyHandlerFunc := func(w http.ResponseWriter, req *http.Request) error { return nil }
 
 	type fields struct {
 		routeMap RouteMap
@@ -159,7 +162,7 @@ func TestRestRouter_register(t *testing.T) {
 				routeMap: tt.fields.routeMap,
 			}
 			r.register(tt.args.path, tt.args.httpMethod, tt.args.handlerFunc)
-			reflect.DeepEqual(r.routeMap[tt.args.path][tt.args.httpMethod](nil, nil), tt.args.expected(nil, nil))
+			reflect.DeepEqual(r.routeMap[tt.args.path][tt.args.httpMethod](nil), tt.args.expected(nil))
 		})
 	}
 }

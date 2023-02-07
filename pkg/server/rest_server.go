@@ -3,32 +3,46 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/yurikilian/bills/pkg/exception"
-	"github.com/yurikilian/bills/pkg/logger"
 	"go.opentelemetry.io/otel/trace"
 	"net/http"
+	"sync"
 )
 
 type Middleware func(next RestRouteHandler) RestRouteHandler
 type RestRouteHandler func(ctx *HttpContext) error
 type RouteMap map[string]map[string]RestRouteHandler
+type RestServerConfiguration struct {
+	Address string
+}
 
 type RestServer struct {
 	mux         *http.ServeMux
 	router      *RestRouter
 	server      *http.Server
 	middlewares []func(next RestRouteHandler) RestRouteHandler
-	log         logger.Logger
 	binder      *Binder
+	ctxPool     sync.Pool
+
+	configuration *RestServerConfiguration
+	options       *Options
 }
 
 func NewRestServer(options *Options) *RestServer {
-	return &RestServer{
-		mux:    http.NewServeMux(),
-		server: &http.Server{Addr: options.BindAddress},
-		log:    options.Log,
-		binder: NewBinder(),
+
+	srv := &RestServer{
+		mux:     http.NewServeMux(),
+		server:  &http.Server{Addr: options.BindAddress},
+		binder:  NewBinder(),
+		options: options,
 	}
+
+	srv.ctxPool.New = func() any {
+		return NewHttpContext(nil, nil, srv.options.Log, srv.binder)
+	}
+
+	return srv
 }
 
 func (srv *RestServer) Router(router *RestRouter) *RestServer {
@@ -48,8 +62,8 @@ func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		handler = srv.errorHandler(lErr)
 	}
 
-	//TODO: check concurrency!
-	httpContext := NewHttpContext(w, req, srv.log, srv.binder)
+	httpContext := srv.AcquireContext()
+	httpContext.reset(w, req)
 
 	err := srv.applyMiddlewares(handler)(httpContext)
 
@@ -57,11 +71,18 @@ func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		e := srv.errorHandler(srv.handleError(err))(httpContext)
 		if e != nil {
 			println("unexpected")
-			return
 		}
-		return
 	}
 
+	srv.ReleaseContext(httpContext)
+}
+
+func (srv *RestServer) AcquireContext() *HttpContext {
+	return srv.ctxPool.Get().(*HttpContext)
+}
+
+func (srv *RestServer) ReleaseContext(httpContext *HttpContext) {
+	srv.ctxPool.Put(httpContext)
 }
 
 func (srv *RestServer) errorHandler(lErr *exception.Problem) func(ctx *HttpContext) error {
@@ -85,11 +106,19 @@ func (srv *RestServer) applyMiddlewares(handlerByMethod RestRouteHandler) RestRo
 	return fnc
 }
 
-func (srv *RestServer) Start() *exception.Problem {
+func (srv *RestServer) Start(ctx context.Context) *exception.Problem {
+
+	err := Validator.Validate(srv.options)
+	if err != nil {
+		return exception.NewInternalServerError(err.Error())
+	}
+
 	srv.mux.Handle("/", srv)
 	srv.server.Handler = srv.mux
-	err := srv.server.ListenAndServe()
 
+	srv.options.Log.Info(ctx, fmt.Sprintf("Started server on %v port", srv.options.BindAddress))
+
+	err = srv.server.ListenAndServe()
 	if err != nil {
 		return srv.handleError(err)
 	}

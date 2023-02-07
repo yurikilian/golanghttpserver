@@ -1,6 +1,10 @@
 build:
 	go build -o bin/server cmd/main.go
 
+
+test:
+	go test ./... -cover
+
 run: build
 	./server
 

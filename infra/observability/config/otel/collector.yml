@@ -10,10 +10,18 @@ processors:
     timeout: 10s
 
 exporters:
-  otlp:
-   endpoint: tempo:4317
-   tls:
-    insecure: true
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: personal_bills
+    send_timestamps: true
+    metric_expiration: 180m
+    resource_to_telemetry_conversion:
+      enabled: true
 
   logging:
     logLevel: debug
@@ -23,4 +31,8 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging, otlp]
+      exporters: [logging, jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
