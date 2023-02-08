@@ -12,7 +12,8 @@ import (
 
 type Middleware func(next RestRouteHandler) RestRouteHandler
 type RestRouteHandler func(ctx *HttpContext) error
-type RouteMap map[string]map[string]RestRouteHandler
+type HandlersByMethod = map[string]RestRouteHandler
+type Routes map[string]HandlersByMethod
 type RestServerConfiguration struct {
 	Address string
 }

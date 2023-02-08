@@ -1,6 +1,8 @@
 package server
 
 import (
+	"errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/yurikilian/bills/pkg/exception"
 	"net/http"
 	"reflect"
@@ -29,14 +31,14 @@ func TestNewRestRouter(t *testing.T) {
 
 func TestRestRouter_Get(t *testing.T) {
 	type fields struct {
-		routeMap RouteMap
+		routeMap Routes
 	}
 	type args struct {
 		path        string
 		handlerFunc RestRouteHandler
 	}
 
-	routeMap := RouteMap{"/transactions": map[string]RestRouteHandler{"GET": emptyHandlerFunc}}
+	routeMap := Routes{"/transactions": map[string]RestRouteHandler{"GET": emptyHandlerFunc}}
 	tests := []struct {
 		name   string
 		fields fields
@@ -48,13 +50,13 @@ func TestRestRouter_Get(t *testing.T) {
 				path:        "/transactions",
 				handlerFunc: emptyHandlerFunc,
 			},
-			want: &RestRouter{routeMap: routeMap},
+			want: &RestRouter{routes: routeMap},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RestRouter{
-				routeMap: tt.fields.routeMap,
+				routes: tt.fields.routeMap,
 			}
 			if got := r.Get(tt.args.path, tt.args.handlerFunc); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Get() = %v, expectedHandler %v", got, tt.want)
@@ -65,9 +67,12 @@ func TestRestRouter_Get(t *testing.T) {
 
 func TestRestRouter_load(t *testing.T) {
 
-	routeMap := RouteMap{"/transactions": map[string]RestRouteHandler{"GET": emptyHandlerFunc}}
+	routeMap := Routes{
+		"/transactions":                        map[string]RestRouteHandler{"GET": emptyHandlerFunc},
+		"/transactions/:id/product/:productId": map[string]RestRouteHandler{"GET": trnProductWithIdFunc},
+	}
 	type fields struct {
-		routeMap RouteMap
+		routeMap Routes
 	}
 	type args struct {
 		path       string
@@ -110,11 +115,21 @@ func TestRestRouter_load(t *testing.T) {
 			expectedHandler: emptyHandlerFunc,
 			expectedEx:      nil,
 		},
+		{
+			name:   "Should match url /transactions/:id/product/:productId - URL with Path variables",
+			fields: fields{routeMap: routeMap},
+			args: args{
+				path:       "/transactions/1/product/1",
+				httpMethod: http.MethodGet,
+			},
+			expectedHandler: trnProductWithIdFunc,
+			expectedEx:      nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RestRouter{
-				routeMap: tt.fields.routeMap,
+				routes: tt.fields.routeMap,
 			}
 			got, got1 := r.load(tt.args.path, tt.args.httpMethod)
 			if got != nil && tt.expectedHandler != nil {
@@ -132,7 +147,7 @@ func TestRestRouter_load(t *testing.T) {
 func TestRestRouter_register(t *testing.T) {
 
 	type fields struct {
-		routeMap RouteMap
+		routeMap Routes
 	}
 	type args struct {
 		path        string
@@ -147,7 +162,7 @@ func TestRestRouter_register(t *testing.T) {
 	}{
 		{
 			name:   "Should register to map given path and method",
-			fields: fields{RouteMap{}},
+			fields: fields{Routes{}},
 			args: args{
 				path:        "/transactions",
 				httpMethod:  http.MethodPatch,
@@ -159,10 +174,34 @@ func TestRestRouter_register(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &RestRouter{
-				routeMap: tt.fields.routeMap,
+				routes: tt.fields.routeMap,
 			}
 			r.register(tt.args.path, tt.args.httpMethod, tt.args.handlerFunc)
-			reflect.DeepEqual(r.routeMap[tt.args.path][tt.args.httpMethod](nil), tt.args.expected(nil))
+			reflect.DeepEqual(r.routes[tt.args.path][tt.args.httpMethod](nil), tt.args.expected(nil))
 		})
 	}
+}
+
+func Test_MatchPatchVariables(t *testing.T) {
+
+	router := &RestRouter{
+		routes: Routes{
+			"/transactions":                        map[string]RestRouteHandler{"GET": emptyHandlerFunc},
+			"/transactions/:id/product/:productId": map[string]RestRouteHandler{"GET": trnProductWithIdFunc},
+		},
+	}
+
+	handler, _ := router.load("/transactions?name=yuri", http.MethodGet)
+	assert.Equal(t, emptyHandlerFunc(nil), handler(nil))
+
+	handler, _ = router.load("/transactions/:id/product/:productId", http.MethodGet)
+	assert.Equal(t, trnProductWithIdFunc(nil), handler(nil))
+
+	handler, _ = router.load("/transactions/:id/product/:productId", http.MethodGet)
+	assert.Equal(t, trnProductWithIdFunc(nil), handler(nil))
+
+}
+
+func trnProductWithIdFunc(ctx *HttpContext) error {
+	return errors.New("just a test")
 }
