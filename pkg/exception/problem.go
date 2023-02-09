@@ -18,13 +18,11 @@ type Problem struct {
 	FieldErrors []string `json:"fieldErrors,omitempty"`
 }
 
-func (p *Problem) Error() string {
+func (p Problem) Error() string {
 	return p.Message
 }
 
-var _ error = (*Problem)(nil)
-
-func NewInternalServerError(messages ...string) *Problem {
+func NewInternalServerError(messages ...string) Problem {
 	var message string
 
 	if len(messages) > 0 {
@@ -33,7 +31,7 @@ func NewInternalServerError(messages ...string) *Problem {
 		message = "An undetermined error was triggered. Please, contact the support team"
 	}
 
-	return &Problem{
+	return Problem{
 		Code:     http.StatusInternalServerError,
 		Message:  message,
 		Instance: "N/A",
@@ -42,8 +40,8 @@ func NewInternalServerError(messages ...string) *Problem {
 	}
 }
 
-func NewMalformedRequestProblem() *Problem {
-	return &Problem{
+func NewMalformedRequestProblem() Problem {
+	return Problem{
 		Code:     http.StatusUnprocessableEntity,
 		Title:    "Malformed request",
 		Message:  "The request is malformed, verify the input or parameters sent",
@@ -52,8 +50,8 @@ func NewMalformedRequestProblem() *Problem {
 	}
 }
 
-func NewBadRequestProblem(message string) *Problem {
-	return &Problem{
+func NewBadRequestProblem(message string) Problem {
+	return Problem{
 		Code:     http.StatusBadRequest,
 		Title:    "Invalid request",
 		Message:  message,
@@ -62,8 +60,8 @@ func NewBadRequestProblem(message string) *Problem {
 	}
 }
 
-func NewUnsupportedMediaType(message string) *Problem {
-	return &Problem{
+func NewUnsupportedMediaType(message string) Problem {
+	return Problem{
 		Code:     http.StatusUnsupportedMediaType,
 		Title:    "Invalid request",
 		Message:  message,
@@ -72,8 +70,8 @@ func NewUnsupportedMediaType(message string) *Problem {
 	}
 }
 
-func NewValidationProblem(vErrors []*ValidationProblemDetail) *Problem {
-	return &Problem{
+func NewValidationProblem(vErrors []ValidationProblemDetail) Problem {
+	return Problem{
 		Code:        http.StatusBadRequest,
 		Title:       "Invalid request",
 		Message:     "The request does not satisfy the validation rules",
@@ -82,8 +80,8 @@ func NewValidationProblem(vErrors []*ValidationProblemDetail) *Problem {
 		FieldErrors: mapValidationErrors(vErrors),
 	}
 }
-func NewRouteNotFound(path string) *Problem {
-	return &Problem{
+func NewRouteNotFound(path string) Problem {
+	return Problem{
 		Code:     http.StatusNotFound,
 		Title:    "Route not found",
 		Message:  fmt.Sprintf("The route `%v` does not exist", path),
@@ -92,8 +90,8 @@ func NewRouteNotFound(path string) *Problem {
 	}
 }
 
-func NewMethodNotAllowed(path string, method string) *Problem {
-	return &Problem{
+func NewMethodNotAllowed(path string, method string) Problem {
+	return Problem{
 		Code:     http.StatusMethodNotAllowed,
 		Title:    "Method not allowed",
 		Message:  fmt.Sprintf("The method %v is not allowed for route `%v`", method, path),
@@ -102,7 +100,7 @@ func NewMethodNotAllowed(path string, method string) *Problem {
 	}
 }
 
-func mapValidationErrors(vErrors []*ValidationProblemDetail) []string {
+func mapValidationErrors(vErrors []ValidationProblemDetail) []string {
 
 	sErrors := make([]string, 0)
 
@@ -162,8 +160,8 @@ type ValidationProblemDetail struct {
 	Param string
 }
 
-func NewValidationProblemDetail(tag string, field string, param string) *ValidationProblemDetail {
-	return &ValidationProblemDetail{
+func NewValidationProblemDetail(tag string, field string, param string) ValidationProblemDetail {
+	return ValidationProblemDetail{
 		Tag:   tag,
 		Field: field,
 		Param: param,

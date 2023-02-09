@@ -1,10 +1,17 @@
 package server
 
 import (
-	"github.com/yurikilian/bills/pkg/exception"
 	"github.com/yurikilian/bills/pkg/matcher"
 	"net/http"
 	"strings"
+)
+
+type LoadStatus int
+
+const (
+	PathNotFound LoadStatus = iota
+	MethodNotAllowed
+	Matched
 )
 
 type RestRouter struct {
@@ -15,41 +22,44 @@ func NewRestRouter() *RestRouter {
 	return &RestRouter{routes: Routes{}}
 }
 
-func (r *RestRouter) Get(path string, handlerFunc RestRouteHandler) *RestRouter {
+func (r *RestRouter) Get(path string, handlerFunc HttpMethodHandler) *RestRouter {
 	r.register(path, http.MethodGet, handlerFunc)
 	return r
 }
 
-func (r *RestRouter) POST(path string, handlerFunc RestRouteHandler) *RestRouter {
+func (r *RestRouter) POST(path string, handlerFunc HttpMethodHandler) *RestRouter {
 	r.register(path, http.MethodPost, handlerFunc)
 	return r
 }
 
-func (r *RestRouter) register(path string, httpMethod string, handlerFunc RestRouteHandler) {
+func (r *RestRouter) register(path string, httpMethod string, handlerFunc HttpMethodHandler) {
 	_, pathExists := r.routes[path]
 	if !pathExists {
-		r.routes[path] = map[string]RestRouteHandler{}
+		r.routes[path] = map[string]HttpMethodHandler{}
 	}
 
 	r.routes[path][httpMethod] = handlerFunc
 }
 
-func (r *RestRouter) load(path string, httpMethod string) (RestRouteHandler, *exception.Problem) {
-	handlersByPath, pathExists := r.matchHandlers(path)
-
-	if !pathExists {
-		return nil, exception.NewRouteNotFound(path)
+func (r *RestRouter) load(path, method string) (HttpMethodHandler, LoadStatus) {
+	handlersByPath, ok := r.matchHandlers(path)
+	if !ok {
+		return nil, PathNotFound
 	}
 
-	handlerByMethod, methodMapExists := handlersByPath[httpMethod]
-	if !methodMapExists {
-		return nil, exception.NewMethodNotAllowed(path, httpMethod)
-
+	httpMethodHandler, ok := handlersByPath[method]
+	if !ok {
+		return nil, MethodNotAllowed
 	}
-	return handlerByMethod, nil
+
+	return httpMethodHandler, Matched
 }
 
-func (r *RestRouter) matchHandlers(path string) (HandlersByMethod, bool) {
+func (r *RestRouter) loadPathHandlers(path string) (HandlersByPath, bool) {
+	return r.matchHandlers(path)
+}
+
+func (r *RestRouter) matchHandlers(path string) (HandlersByPath, bool) {
 	pathParts := strings.Split(path, "/")
 	for pattern, methods := range r.routes {
 

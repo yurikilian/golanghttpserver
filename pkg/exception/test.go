@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func AssertProblem(t *testing.T, expected *Problem, actual *Problem) {
+func AssertProblem(t *testing.T, expected Problem, actual Problem) {
 	assert.Equal(t, http.StatusBadRequest, actual.Code)
 	assert.Equal(t, expected.Title, actual.Title)
 	assert.Equal(t, expected.Message, actual.Message)

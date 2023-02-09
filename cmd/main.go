@@ -29,7 +29,7 @@ func main() {
 		Build()
 
 	srvCtx := context.WithValue(ctx, "startup_time", time.Now().UnixNano())
-	err := server.NewRestServer(server.NewRestServerOptions(":3500", log)).
+	problem, ok := server.NewRestServer(server.NewRestServerOptions(":3500", log)).
 		Use(middleware.Otel()).
 		Use(middleware.Json()).
 		Router(
@@ -39,8 +39,8 @@ func main() {
 		).
 		Start(srvCtx)
 
-	if err != nil {
-		log.Fatal(context.Background(), err.Error())
+	if !ok {
+		log.Fatal(context.Background(), problem.Error())
 	}
 
 }

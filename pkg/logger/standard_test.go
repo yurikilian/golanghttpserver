@@ -313,7 +313,7 @@ func Test_LogLevel(t *testing.T) {
 }
 
 func newLogToTest(w io.Writer, level Level) *StandardLog {
-	log := NewStandardLog(&StandardLogOptions{
+	log := NewStandardLog(StandardLogOptions{
 		Output:    w,
 		Level:     level,
 		Formatter: NewTestFormatter(),

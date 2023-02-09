@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/yurikilian/bills/pkg/exception"
 	"net/http"
 	"reflect"
 	"testing"
@@ -35,10 +34,10 @@ func TestRestRouter_Get(t *testing.T) {
 	}
 	type args struct {
 		path        string
-		handlerFunc RestRouteHandler
+		handlerFunc HttpMethodHandler
 	}
 
-	routeMap := Routes{"/transactions": map[string]RestRouteHandler{"GET": emptyHandlerFunc}}
+	routeMap := Routes{"/transactions": map[string]HttpMethodHandler{"GET": emptyHandlerFunc}}
 	tests := []struct {
 		name   string
 		fields fields
@@ -68,8 +67,8 @@ func TestRestRouter_Get(t *testing.T) {
 func TestRestRouter_load(t *testing.T) {
 
 	routeMap := Routes{
-		"/transactions":                        map[string]RestRouteHandler{"GET": emptyHandlerFunc},
-		"/transactions/:id/product/:productId": map[string]RestRouteHandler{"GET": trnProductWithIdFunc},
+		"/transactions":                        map[string]HttpMethodHandler{"GET": emptyHandlerFunc},
+		"/transactions/:id/product/:productId": map[string]HttpMethodHandler{"GET": trnProductWithIdFunc},
 	}
 	type fields struct {
 		routeMap Routes
@@ -82,8 +81,8 @@ func TestRestRouter_load(t *testing.T) {
 		name            string
 		fields          fields
 		args            args
-		expectedHandler RestRouteHandler
-		expectedEx      *exception.Problem
+		expectedHandler HttpMethodHandler
+		expectedStatus  LoadStatus
 	}{
 		{
 			name:   "Should return not found given not registered path",
@@ -93,17 +92,17 @@ func TestRestRouter_load(t *testing.T) {
 				httpMethod: "GET",
 			},
 			expectedHandler: nil,
-			expectedEx:      exception.NewRouteNotFound("/invalid"),
+			expectedStatus:  PathNotFound,
 		},
 		{
-			name:   "Should return method not allowed exception given invalid method registerd",
+			name:   "Should return method not allowed exception given invalid method registered",
 			fields: fields{routeMap: routeMap},
 			args: args{
 				path:       "/transactions",
 				httpMethod: http.MethodPut,
 			},
 			expectedHandler: nil,
-			expectedEx:      exception.NewMethodNotAllowed("/transactions", http.MethodPut),
+			expectedStatus:  MethodNotAllowed,
 		},
 		{
 			name:   "Should return handler given valid path and valid method",
@@ -112,8 +111,7 @@ func TestRestRouter_load(t *testing.T) {
 				path:       "/transactions",
 				httpMethod: http.MethodGet,
 			},
-			expectedHandler: emptyHandlerFunc,
-			expectedEx:      nil,
+			expectedStatus: Matched,
 		},
 		{
 			name:   "Should match url /transactions/:id/product/:productId - URL with Path variables",
@@ -122,8 +120,7 @@ func TestRestRouter_load(t *testing.T) {
 				path:       "/transactions/1/product/1",
 				httpMethod: http.MethodGet,
 			},
-			expectedHandler: trnProductWithIdFunc,
-			expectedEx:      nil,
+			expectedStatus: Matched,
 		},
 	}
 	for _, tt := range tests {
@@ -131,15 +128,9 @@ func TestRestRouter_load(t *testing.T) {
 			r := &RestRouter{
 				routes: tt.fields.routeMap,
 			}
-			got, got1 := r.load(tt.args.path, tt.args.httpMethod)
-			if got != nil && tt.expectedHandler != nil {
-				if !reflect.DeepEqual(got(nil), tt.expectedHandler(nil)) {
-					t.Errorf("load() got = %v, expectedHandler %v", got, tt.expectedHandler)
-				}
-			}
-			if !reflect.DeepEqual(got1, tt.expectedEx) {
-				t.Errorf("load() got1 = %v, expectedHandler %v", got1, tt.expectedEx)
-			}
+			handler, status := r.load(tt.args.path, tt.args.httpMethod)
+			reflect.DeepEqual(handler, tt.expectedHandler)
+			assert.Equal(t, status, tt.expectedStatus)
 		})
 	}
 }
@@ -152,8 +143,8 @@ func TestRestRouter_register(t *testing.T) {
 	type args struct {
 		path        string
 		httpMethod  string
-		handlerFunc RestRouteHandler
-		expected    RestRouteHandler
+		handlerFunc HttpMethodHandler
+		expected    HttpMethodHandler
 	}
 	tests := []struct {
 		name   string
@@ -186,8 +177,8 @@ func Test_MatchPatchVariables(t *testing.T) {
 
 	router := &RestRouter{
 		routes: Routes{
-			"/transactions":                        map[string]RestRouteHandler{"GET": emptyHandlerFunc},
-			"/transactions/:id/product/:productId": map[string]RestRouteHandler{"GET": trnProductWithIdFunc},
+			"/transactions":                        map[string]HttpMethodHandler{"GET": emptyHandlerFunc},
+			"/transactions/:id/product/:productId": map[string]HttpMethodHandler{"GET": trnProductWithIdFunc},
 		},
 	}
 

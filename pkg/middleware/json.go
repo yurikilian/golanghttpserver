@@ -7,7 +7,7 @@ import (
 )
 
 func Json() server.Middleware {
-	return func(next server.RestRouteHandler) server.RestRouteHandler {
+	return func(next server.HttpMethodHandler) server.HttpMethodHandler {
 		return func(ctx *server.HttpContext) error {
 			contentType := ctx.Request().Header.Get("Content-Type")
 			mediaType, _, err := mime.ParseMediaType(contentType)

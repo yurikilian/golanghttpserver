@@ -10,10 +10,10 @@ import (
 	"sync"
 )
 
-type Middleware func(next RestRouteHandler) RestRouteHandler
-type RestRouteHandler func(ctx *HttpContext) error
-type HandlersByMethod = map[string]RestRouteHandler
-type Routes map[string]HandlersByMethod
+type Middleware func(next HttpMethodHandler) HttpMethodHandler
+type HttpMethodHandler func(ctx *HttpContext) error
+type HandlersByPath = map[string]HttpMethodHandler
+type Routes map[string]HandlersByPath
 type RestServerConfiguration struct {
 	Address string
 }
@@ -22,7 +22,7 @@ type RestServer struct {
 	mux         *http.ServeMux
 	router      *RestRouter
 	server      *http.Server
-	middlewares []func(next RestRouteHandler) RestRouteHandler
+	middlewares []func(next HttpMethodHandler) HttpMethodHandler
 	binder      *Binder
 	ctxPool     sync.Pool
 
@@ -57,12 +57,8 @@ func (srv *RestServer) Use(middleware Middleware) *RestServer {
 }
 
 func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	handler, lErr := srv.router.load(req.URL.Path, req.Method)
 
-	if lErr != nil {
-		handler = srv.errorHandler(lErr)
-	}
-
+	handler := srv.getHandler(req)
 	httpContext := srv.AcquireContext()
 	httpContext.reset(w, req)
 
@@ -76,6 +72,19 @@ func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	srv.ReleaseContext(httpContext)
+
+}
+
+func (srv *RestServer) getHandler(req *http.Request) HttpMethodHandler {
+	httpMethodHandler, status := srv.router.load(req.URL.Path, req.Method)
+
+	if status == Matched {
+		return httpMethodHandler
+	} else if status == PathNotFound {
+		return srv.errorHandler(exception.NewRouteNotFound(req.URL.Path))
+	} else {
+		return srv.errorHandler(exception.NewMethodNotAllowed(req.URL.Path, req.Method))
+	}
 }
 
 func (srv *RestServer) AcquireContext() *HttpContext {
@@ -86,7 +95,7 @@ func (srv *RestServer) ReleaseContext(httpContext *HttpContext) {
 	srv.ctxPool.Put(httpContext)
 }
 
-func (srv *RestServer) errorHandler(lErr *exception.Problem) func(ctx *HttpContext) error {
+func (srv *RestServer) errorHandler(lErr exception.Problem) func(ctx *HttpContext) error {
 	return func(ctx *HttpContext) error {
 
 		span := trace.SpanFromContext(ctx.Request().Context())
@@ -98,7 +107,7 @@ func (srv *RestServer) errorHandler(lErr *exception.Problem) func(ctx *HttpConte
 	}
 }
 
-func (srv *RestServer) applyMiddlewares(handlerByMethod RestRouteHandler) RestRouteHandler {
+func (srv *RestServer) applyMiddlewares(handlerByMethod HttpMethodHandler) HttpMethodHandler {
 	fnc := handlerByMethod
 
 	for i := len(srv.middlewares) - 1; i >= 0; i-- {
@@ -107,23 +116,19 @@ func (srv *RestServer) applyMiddlewares(handlerByMethod RestRouteHandler) RestRo
 	return fnc
 }
 
-func (srv *RestServer) Start(ctx context.Context) *exception.Problem {
+func (srv *RestServer) Start(ctx context.Context) (exception.Problem, bool) {
 
 	err := Validator.Validate(srv.options)
 	if err != nil {
-		return exception.NewInternalServerError(err.Error())
+		return exception.NewInternalServerError(err.Error()), false
 	}
 
 	srv.mux.Handle("/", srv)
 	srv.server.Handler = srv.mux
 
-	srv.options.Log.Info(ctx, fmt.Sprintf("Started server on %v port", srv.options.BindAddress))
+	srv.options.Log.Info(ctx, fmt.Sprintf("Starting server on %v address", srv.options.BindAddress))
 
-	err = srv.server.ListenAndServe()
-	if err != nil {
-		return srv.handleError(err)
-	}
-	return nil
+	return srv.handleError(srv.server.ListenAndServe()), true
 }
 
 func (srv *RestServer) Shutdown(ctx context.Context) {
@@ -133,10 +138,10 @@ func (srv *RestServer) Shutdown(ctx context.Context) {
 	}
 }
 
-func (srv *RestServer) handleError(err error) *exception.Problem {
+func (srv *RestServer) handleError(err error) exception.Problem {
 	switch err.(type) {
-	case *exception.Problem:
-		return err.(*exception.Problem)
+	case exception.Problem:
+		return err.(exception.Problem)
 	default:
 		return exception.NewInternalServerError(err.Error())
 	}
@@ -146,7 +151,7 @@ func (srv *RestServer) getHttpServer() *http.Server {
 	return srv.server
 }
 
-func (srv *RestServer) writeException(w http.ResponseWriter, ex *exception.Problem) {
+func (srv *RestServer) writeException(w http.ResponseWriter, ex exception.Problem) {
 	w.WriteHeader(ex.Code)
 
 	marshal, err := json.Marshal(ex)

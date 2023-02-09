@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/yurikilian/bills/internal/logger"
 	"github.com/yurikilian/bills/pkg/exception"
@@ -138,7 +137,7 @@ func TestRestServer_Start(t *testing.T) {
 	tests := []struct {
 		name          string
 		fields        fields
-		expectedErr   *exception.Problem
+		expectedErr   exception.Problem
 		expectedStart bool
 	}{
 		{
@@ -170,26 +169,30 @@ func TestRestServer_Start(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := tt.fields.server.Router(tt.fields.router)
+			router := tt.fields.server.Router(tt.fields.router)
 
 			if tt.expectedStart {
-
 				go func() {
 					time.Sleep(1 * time.Second)
 					err := tt.fields.server.getHttpServer().Shutdown(context.Background())
 					assert.NoError(t, err)
 				}()
 
-				assert.Error(t, errors.New("http: Server closed"))
-			} else if tt.expectedErr != nil {
-				assert.Equal(t, tt.expectedErr, r.Start(nil))
+				problem, ok := router.Start(context.TODO())
+				assert.True(t, ok)
+				assert.Error(t, problem)
+
+			} else {
+				ex, ok := router.Start(nil)
+				assert.False(t, ok)
+				assert.Equal(t, tt.expectedErr, ex)
 			}
 
 		})
 	}
 }
 
-func getJson(t *testing.T, ex *exception.Problem) string {
+func getJson(t *testing.T, ex exception.Problem) string {
 	marshal, err := json.Marshal(ex)
 	assert.NoError(t, err)
 	return string(marshal)

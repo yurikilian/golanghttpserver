@@ -21,7 +21,8 @@ func Test_Transaction_Create(t *testing.T) {
 		name                string
 		request             *CreationRequest
 		expectedStatusCode  int
-		expectedProblem     *exception.Problem
+		expectsErr          bool
+		exceptedEx          exception.Problem
 		expectedSavedEntity *Entity
 	}{
 		{
@@ -51,9 +52,10 @@ func Test_Transaction_Create(t *testing.T) {
 				Currency:    "DDD",
 				Type:        "",
 			},
+			expectsErr:         true,
 			expectedStatusCode: http.StatusBadRequest,
-			expectedProblem: exception.NewValidationProblem(
-				[]*exception.ValidationProblemDetail{
+			exceptedEx: exception.NewValidationProblem(
+				[]exception.ValidationProblemDetail{
 					exception.NewValidationProblemDetail("required", "Title", ""),
 					exception.NewValidationProblemDetail("required", "Description", ""),
 					exception.NewValidationProblemDetail("required", "Price", ""),
@@ -66,8 +68,10 @@ func Test_Transaction_Create(t *testing.T) {
 			name:               "Should return 400 bad request given invalid creation request payload with empty currency",
 			request:            &CreationRequest{},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedProblem: exception.NewValidationProblem(
-				[]*exception.ValidationProblemDetail{
+			expectsErr:         true,
+
+			exceptedEx: exception.NewValidationProblem(
+				[]exception.ValidationProblemDetail{
 					exception.NewValidationProblemDetail("required", "Title", ""),
 					exception.NewValidationProblemDetail("required", "Description", ""),
 					exception.NewValidationProblemDetail("required", "Price", ""),
@@ -80,8 +84,10 @@ func Test_Transaction_Create(t *testing.T) {
 			name:               "Should return 400 bad request given invalid creation request payload with nil fields",
 			request:            &CreationRequest{},
 			expectedStatusCode: http.StatusBadRequest,
-			expectedProblem: exception.NewValidationProblem(
-				[]*exception.ValidationProblemDetail{
+			expectsErr:         true,
+
+			exceptedEx: exception.NewValidationProblem(
+				[]exception.ValidationProblemDetail{
 					exception.NewValidationProblemDetail("required", "Title", ""),
 					exception.NewValidationProblemDetail("required", "Description", ""),
 					exception.NewValidationProblemDetail("required", "Price", ""),
@@ -99,9 +105,11 @@ func Test_Transaction_Create(t *testing.T) {
 				Type:        "DREBIT",
 				Price:       53.25,
 			},
+			expectsErr: true,
+
 			expectedStatusCode: http.StatusBadRequest,
-			expectedProblem: exception.NewValidationProblem(
-				[]*exception.ValidationProblemDetail{
+			exceptedEx: exception.NewValidationProblem(
+				[]exception.ValidationProblemDetail{
 					exception.NewValidationProblemDetail("oneof", "Type", "'CREDIT' 'DEBIT'"),
 				},
 			),
@@ -140,14 +148,14 @@ func Test_Transaction_Create(t *testing.T) {
 
 			assert.Equal(t, test.expectedStatusCode, rec.Code)
 
-			if test.expectedProblem != nil {
+			if test.expectsErr {
 				var problem exception.Problem
 				err := json.Unmarshal(rec.Body.Bytes(), &problem)
 				if err != nil {
 					assert.NoError(t, err)
 				}
 
-				exception.AssertProblem(t, test.expectedProblem, &problem)
+				exception.AssertProblem(t, test.exceptedEx, problem)
 			}
 
 			if test.expectedSavedEntity != nil {
