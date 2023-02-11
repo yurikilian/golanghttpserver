@@ -84,9 +84,9 @@ func NewRouteNotFound(path string) Problem {
 	return Problem{
 		Code:     http.StatusNotFound,
 		Title:    "Route not found",
-		Message:  fmt.Sprintf("The route `%v` does not exist", path),
+		Message:  "",
 		Instance: "N/A",
-		Type:     fmt.Sprintf("%v/problems/not-found", baseUrl),
+		Type:     "",
 	}
 }
 
@@ -94,9 +94,9 @@ func NewMethodNotAllowed(path string, method string) Problem {
 	return Problem{
 		Code:     http.StatusMethodNotAllowed,
 		Title:    "Method not allowed",
-		Message:  fmt.Sprintf("The method %v is not allowed for route `%v`", method, path),
+		Message:  "",
 		Instance: "N/A",
-		Type:     fmt.Sprintf("%v/problems/method-not-allowed", baseUrl),
+		Type:     "",
 	}
 }
 

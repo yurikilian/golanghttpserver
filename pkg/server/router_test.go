@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	emptyHandlerFunc = func(ctx *HttpContext) error { return nil }
+	emptyHandlerFunc = func(ctx IHttpContext) error { return nil }
 )
 
 func TestNewRestRouter(t *testing.T) {
@@ -193,6 +193,6 @@ func Test_MatchPatchVariables(t *testing.T) {
 
 }
 
-func trnProductWithIdFunc(ctx *HttpContext) error {
+func trnProductWithIdFunc(ctx IHttpContext) error {
 	return errors.New("just a test")
 }

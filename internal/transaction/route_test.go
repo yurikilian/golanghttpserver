@@ -129,8 +129,7 @@ func Test_Transaction_Create(t *testing.T) {
 		Use(middleware.Json())
 
 	defer func() {
-		_ = restServer.Start(nil)
-
+		_, _ = restServer.Start(nil)
 	}()
 
 	for _, test := range tests {

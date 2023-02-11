@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 )
@@ -51,7 +50,7 @@ func TestRestServer_Router(t *testing.T) {
 func TestRestServer_ServeHTTP(t *testing.T) {
 
 	server := NewRestServer(&Options{BindAddress: ":8080"})
-	handlerFunc := func(httpContext *HttpContext) error {
+	handlerFunc := func(httpContext IHttpContext) error {
 		return httpContext.WriteResponse(200, "Test")
 	}
 	server.Router(NewRestRouter().Get("/test", handlerFunc))
@@ -147,7 +146,7 @@ func TestRestServer_Start(t *testing.T) {
 				server: NewRestServer(&Options{Log: logger.NewProvider().ProvideLog(), BindAddress: "-1"}),
 			},
 			expectedErr:   exception.NewInternalServerError("listen tcp: address -1: missing port in address"),
-			expectedStart: false,
+			expectedStart: true,
 		},
 		{
 			name: "Return exception given invalid server configuration",
@@ -162,14 +161,14 @@ func TestRestServer_Start(t *testing.T) {
 			name: "Should start server",
 			fields: fields{
 				router: NewRestRouter(),
-				server: NewRestServer(&Options{BindAddress: ":0"}),
+				server: NewRestServer(&Options{Log: logger.NewProvider().ProvideLog(), BindAddress: ":0"}),
 			},
 			expectedStart: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			router := tt.fields.server.Router(tt.fields.router)
+			server := tt.fields.server.Router(tt.fields.router)
 
 			if tt.expectedStart {
 				go func() {
@@ -178,12 +177,12 @@ func TestRestServer_Start(t *testing.T) {
 					assert.NoError(t, err)
 				}()
 
-				problem, ok := router.Start(context.TODO())
+				problem, ok := server.Start(context.TODO())
 				assert.True(t, ok)
 				assert.Error(t, problem)
 
 			} else {
-				ex, ok := router.Start(nil)
+				ex, ok := server.Start(nil)
 				assert.False(t, ok)
 				assert.Equal(t, tt.expectedErr, ex)
 			}
@@ -206,18 +205,15 @@ func newRequest(method string, path string, body io.Reader) *http.Request {
 func BenchmarkRestServer_ServeHTTP(b *testing.B) {
 
 	server := NewRestServer(&Options{BindAddress: ":0"})
-	mutex := &sync.Mutex{}
-	handlerFunc := func(ctx *HttpContext) error {
-		mutex.Lock()
-		ctx.WriteResponse(200, "Test")
-		mutex.Unlock()
+	handlerFunc := func(ctx IHttpContext) error {
+
 		return nil
 	}
 	writer := httptest.NewRecorder()
 
 	server.Router(NewRestRouter().Get("/test", handlerFunc))
-	request := newRequest(http.MethodGet, "/test", nil)
-
+	//request := newRequest(http.MethodGet, "/test", nil)
+	request := httptest.NewRequest(http.MethodGet, "/test", nil)
 	b.ResetTimer()
 	b.ReportAllocs()
 

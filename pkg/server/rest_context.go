@@ -8,6 +8,17 @@ import (
 	"net/http"
 )
 
+type IHttpContext interface {
+	Writer() http.ResponseWriter
+	Request() *http.Request
+	ReqCtx() context.Context
+	SetRequest(r *http.Request)
+	WriteResponse(statusCode int, data interface{}) error
+	Logger() logger.Logger
+	ReadBody(bodyStruct interface{}) error
+	reset(writer http.ResponseWriter, request *http.Request)
+}
+
 type HttpContext struct {
 	writer  http.ResponseWriter
 	request *http.Request
@@ -15,7 +26,7 @@ type HttpContext struct {
 	binder  *Binder
 }
 
-func NewHttpContext(writer http.ResponseWriter, request *http.Request, log logger.Logger, binder *Binder) *HttpContext {
+func NewHttpContext(writer http.ResponseWriter, request *http.Request, log logger.Logger, binder *Binder) IHttpContext {
 	return &HttpContext{writer: writer, request: request, log: log, binder: binder}
 }
 

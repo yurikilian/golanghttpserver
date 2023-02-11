@@ -13,7 +13,7 @@ func NewProvider() *Provider {
 }
 
 func (p *Provider) ProvideLog() logger.Logger {
-	return logger.NewStandardLog(logger.StandardLogOptions{
+	return logger.NewStandardLog(&logger.StandardLogOptions{
 		Output:    os.Stderr,
 		Level:     logger.DebugLevel,
 		Formatter: NewOtelLogFormatter(),

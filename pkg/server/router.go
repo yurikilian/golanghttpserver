@@ -42,7 +42,8 @@ func (r *RestRouter) register(path string, httpMethod string, handlerFunc HttpMe
 }
 
 func (r *RestRouter) load(path, method string) (HttpMethodHandler, LoadStatus) {
-	handlersByPath, ok := r.matchHandlers(path)
+	handlersByPath, ok := r.matchHandlers(strings.Split(path, "/"))
+	//handlersByPath, ok := r.routes[path]
 	if !ok {
 		return nil, PathNotFound
 	}
@@ -55,12 +56,9 @@ func (r *RestRouter) load(path, method string) (HttpMethodHandler, LoadStatus) {
 	return httpMethodHandler, Matched
 }
 
-func (r *RestRouter) loadPathHandlers(path string) (HandlersByPath, bool) {
-	return r.matchHandlers(path)
-}
+// TODO remove 4 allocs
+func (r *RestRouter) matchHandlers(pathParts []string) (HandlersByPath, bool) {
 
-func (r *RestRouter) matchHandlers(path string) (HandlersByPath, bool) {
-	pathParts := strings.Split(path, "/")
 	for pattern, methods := range r.routes {
 
 		if matcher.MatchPath(pathParts, pattern) {

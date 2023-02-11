@@ -18,16 +18,17 @@ type StandardLogOptions struct {
 
 type StandardLog struct {
 	stdLogger *log.Logger
-	options   StandardLogOptions
+	options   *StandardLogOptions
 	exitCall  func()
 }
 
-func NewStandardLog(options StandardLogOptions) *StandardLog {
-
-	options = StandardLogOptions{
-		Output:    os.Stderr,
-		Level:     InfoLevel,
-		Formatter: NewStandardFormatter(),
+func NewStandardLog(options *StandardLogOptions) *StandardLog {
+	if options == nil {
+		options = &StandardLogOptions{
+			Output:    os.Stderr,
+			Level:     InfoLevel,
+			Formatter: NewStandardFormatter(),
+		}
 	}
 
 	standardLog := StandardLog{

@@ -11,7 +11,7 @@ import (
 )
 
 type Middleware func(next HttpMethodHandler) HttpMethodHandler
-type HttpMethodHandler func(ctx *HttpContext) error
+type HttpMethodHandler func(ctx IHttpContext) error
 type HandlersByPath = map[string]HttpMethodHandler
 type Routes map[string]HandlersByPath
 type RestServerConfiguration struct {
@@ -39,7 +39,7 @@ func NewRestServer(options *Options) *RestServer {
 		options: options,
 	}
 
-	srv.ctxPool.New = func() any {
+	srv.ctxPool.New = func() interface{} {
 		return NewHttpContext(nil, nil, srv.options.Log, srv.binder)
 	}
 
@@ -58,9 +58,10 @@ func (srv *RestServer) Use(middleware Middleware) *RestServer {
 
 func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	handler := srv.getHandler(req)
-	httpContext := srv.AcquireContext()
+	httpContext := srv.ctxPool.Get().(*HttpContext)
 	httpContext.reset(w, req)
+
+	handler := srv.getHandler(req)
 
 	err := srv.applyMiddlewares(handler)(httpContext)
 
@@ -75,6 +76,17 @@ func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func (srv *RestServer) process(handler HttpMethodHandler, httpContext IHttpContext) {
+	err := srv.applyMiddlewares(handler)(httpContext)
+
+	if err != nil {
+		e := srv.errorHandler(srv.handleError(err))(httpContext)
+		if e != nil {
+			println("unexpected")
+		}
+	}
+}
+
 func (srv *RestServer) getHandler(req *http.Request) HttpMethodHandler {
 	httpMethodHandler, status := srv.router.load(req.URL.Path, req.Method)
 
@@ -87,22 +99,22 @@ func (srv *RestServer) getHandler(req *http.Request) HttpMethodHandler {
 	}
 }
 
-func (srv *RestServer) AcquireContext() *HttpContext {
-	return srv.ctxPool.Get().(*HttpContext)
+func (srv *RestServer) AcquireContext() IHttpContext {
+	return srv.ctxPool.Get().(IHttpContext)
 }
 
-func (srv *RestServer) ReleaseContext(httpContext *HttpContext) {
+func (srv *RestServer) ReleaseContext(httpContext IHttpContext) {
 	srv.ctxPool.Put(httpContext)
 }
 
-func (srv *RestServer) errorHandler(lErr exception.Problem) func(ctx *HttpContext) error {
-	return func(ctx *HttpContext) error {
+func (srv *RestServer) errorHandler(lErr exception.Problem) func(ctx IHttpContext) error {
+	return func(ctx IHttpContext) error {
 
 		span := trace.SpanFromContext(ctx.Request().Context())
 		span.RecordError(lErr)
 		defer span.End()
 
-		srv.writeException(ctx.writer, lErr)
+		srv.writeException(ctx.Writer(), lErr)
 		return nil
 	}
 }
