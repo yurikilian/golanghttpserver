@@ -9,7 +9,7 @@ type Route struct {
 	service *Service
 }
 
-func (r *Route) Find(ctx *server.HttpContext) error {
+func (r *Route) Find(ctx server.IHttpContext) error {
 
 	ctx.Logger().Debug(ctx.ReqCtx(), "Entering find function")
 
@@ -26,7 +26,7 @@ func (r *Route) Find(ctx *server.HttpContext) error {
 	return ctx.WriteResponse(200, trn)
 }
 
-func (r *Route) Create(ctx *server.HttpContext) error {
+func (r *Route) Create(ctx server.IHttpContext) error {
 	var request CreationRequest
 	if bErr := ctx.ReadBody(&request); bErr != nil {
 		return bErr

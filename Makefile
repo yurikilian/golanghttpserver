@@ -6,7 +6,7 @@ test:
 	go test ./... -cover
 
 run: build
-	./server
+	GOMEMLIMIT=256MiB GOMAXPROCS=8 ./bin/server
 
 watch:
 	ulimit -n 1000

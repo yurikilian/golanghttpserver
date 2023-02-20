@@ -117,6 +117,5 @@ func (t *StandardFormatter) Format(ctx context.Context, fields Fields, message s
 			fields["severityText"],
 			fields["severityNumber"],
 			message,
-		) //,
-
+		)
 }

@@ -23,15 +23,12 @@ exporters:
     resource_to_telemetry_conversion:
       enabled: true
 
-  logging:
-    logLevel: debug
-
 service:
   pipelines:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging, jaeger]
+      exporters: [jaeger]
     metrics:
       receivers: [otlp]
       processors: [batch]

@@ -8,20 +8,19 @@ import (
 	"github.com/yurikilian/bills/pkg/db"
 	"github.com/yurikilian/bills/pkg/middleware"
 	"github.com/yurikilian/bills/pkg/server"
-	"github.com/yurikilian/bills/pkg/telemetry"
 	"time"
 )
 
 func main() {
 
 	ctx := context.Background()
-	closeTelemetry := telemetry.Init(ctx)
-	defer closeTelemetry()
-
-	log := logger.NewProvider().ProvideLog()
 
 	configurationProvider := server.NewConfigurationProvider()
-	dbConnection := db.ConnectPgsql(configurationProvider.GetDBConnectionString())
+	dbConnection, closeDb := db.ConnectPgsql(ctx, configurationProvider.GetDBConnectionString())
+	defer closeDb()
+
+	/*closeTelemetry := telemetry.Init(ctx)
+	defer closeTelemetry()*/
 
 	transactionModuleProvider := transaction.
 		NewTransactionModuleBuilder().
@@ -29,7 +28,7 @@ func main() {
 		Build()
 
 	srvCtx := context.WithValue(ctx, "startup_time", time.Now().UnixNano())
-	problem, ok := server.NewRestServer(server.NewRestServerOptions(":3500", log)).
+	problem, ok := server.NewRestServer(server.NewRestServerOptions(":3500", logger.Log)).
 		Use(middleware.Otel()).
 		Use(middleware.Json()).
 		Router(
@@ -40,7 +39,7 @@ func main() {
 		Start(srvCtx)
 
 	if !ok {
-		log.Fatal(context.Background(), problem.Error())
+		logger.Log.Fatal(context.Background(), problem.Error())
 	}
 
 }

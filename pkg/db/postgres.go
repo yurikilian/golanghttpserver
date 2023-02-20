@@ -1,24 +1,32 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"os"
+	"github.com/yurikilian/bills/internal/logger"
 )
 
-func ConnectPgsql(connectionString *string) *sql.DB {
+type CloseFunc func()
+
+func ConnectPgsql(ctx context.Context, connectionString *string) (*sql.DB, CloseFunc) {
 	db, err := sql.Open("pgx", *connectionString)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
-		os.Exit(1)
+		logger.Log.Fatal(ctx, fmt.Sprintf("Unable to create connection pool: %v\n", err))
 	}
 
 	if err = db.Ping(); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create connection pool: %v\n", err)
-		os.Exit(1)
+		logger.Log.Fatal(ctx, fmt.Sprintf("Unable to create connection pool: %v\n", err))
 	}
 
-	return db
+	db.SetMaxOpenConns(10)
+
+	return db, func() {
+		err := db.Close()
+		if err != nil {
+			logger.Log.Error(context.Background(), err.Error())
+		}
+	}
 }

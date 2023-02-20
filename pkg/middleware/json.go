@@ -8,7 +8,7 @@ import (
 
 func Json() server.Middleware {
 	return func(next server.HttpMethodHandler) server.HttpMethodHandler {
-		return func(ctx *server.HttpContext) error {
+		return func(ctx server.IHttpContext) error {
 			contentType := ctx.Request().Header.Get("Content-Type")
 			mediaType, _, err := mime.ParseMediaType(contentType)
 			if err != nil {

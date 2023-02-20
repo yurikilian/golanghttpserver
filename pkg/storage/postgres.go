@@ -1,10 +1,12 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/mitchellh/mapstructure"
+	"github.com/yurikilian/bills/internal/logger"
 	"reflect"
 	"strings"
 )
@@ -22,6 +24,13 @@ func (s *PsqlStorage[T]) Find(id float64) (*T, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.Log.Warn(context.Background(), err.Error())
+		}
+	}(rows)
 
 	m := FirstRowToMap(rows)
 

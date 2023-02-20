@@ -58,7 +58,7 @@ func (srv *RestServer) Use(middleware Middleware) *RestServer {
 
 func (srv *RestServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	httpContext := srv.ctxPool.Get().(*HttpContext)
+	httpContext := srv.ctxPool.Get().(IHttpContext)
 	httpContext.reset(w, req)
 
 	handler := srv.getHandler(req)

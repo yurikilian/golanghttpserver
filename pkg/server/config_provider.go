@@ -1,9 +1,7 @@
 package server
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 
 	"github.com/go-playground/validator/v10"
@@ -20,12 +18,11 @@ type ConfigurationProvider struct {
 
 func (cfg *ConfigurationProvider) loadConfig() {
 
-	workingDirectory, _ := os.Getwd()
-	rootPath := filepath.Dir(workingDirectory)
-
-	//TODO: resolve file relative or get rid of it
-	viper.SetConfigFile(fmt.Sprintf("%v/.env", rootPath))
-	viper.SetConfigType("env")
+	envFilePath := os.Getenv("ENV_FILE")
+	if len(envFilePath) > 0 {
+		viper.SetConfigFile(envFilePath)
+		viper.SetConfigType("env")
+	}
 
 	_ = viper.ReadInConfig()
 

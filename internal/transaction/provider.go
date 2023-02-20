@@ -35,7 +35,7 @@ func (p *ModuleBuilder) WithPsqlStorage(dbConnection *sql.DB) *ModuleBuilder {
 		panic("Storage already defined")
 	}
 
-	tableName := "transactions"
+	tableName := "transaction"
 	p.provider.storage = storage.GetPsql[Entity](dbConnection, &tableName)
 	return p
 }

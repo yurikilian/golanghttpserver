@@ -7,7 +7,7 @@ import (
 
 func Otel() server.Middleware {
 	return func(next server.HttpMethodHandler) server.HttpMethodHandler {
-		return func(rCtx *server.HttpContext) error {
+		return func(rCtx server.IHttpContext) error {
 			traceCtx, span := otel.Tracer("").
 				Start(rCtx.Request().Context(), rCtx.Request().URL.Path)
 
